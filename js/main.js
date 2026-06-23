@@ -74,6 +74,7 @@
     initCounter();
     initHearts();
     initLoveLines();
+    initSlideshow();
     initMusic();
   }
 
@@ -258,33 +259,205 @@
     }, 6000);
   }
 
-  /* ---------------- Music (optional) ----------------
-     Drop a track at  assets/song.mp3  to enable.  */
-  function initMusic() {
-    const btn = document.getElementById('muteBtn');
-    let audio = null;
-    let muted = true;
-    btn.classList.add('muted');
-    btn.addEventListener('click', () => {
-      if (!audio) {
-        audio = new Audio('assets/song.mp3');
-        audio.loop = true;
-        audio.volume = 0.5;
-      }
-      if (muted) {
-        audio.play().then(() => {
-          muted = false;
-          btn.classList.remove('muted');
-          btn.textContent = '♫';
-        }).catch(() => {
-          btn.title = '请把背景音乐放到 assets/song.mp3';
-        });
-      } else {
-        audio.pause();
-        muted = true;
-        btn.classList.add('muted');
-        btn.textContent = '♪';
-      }
+  /* ---------------- Photo slideshow ----------------
+     Looks for assets/photos/1..10.{heic|jpg|jpeg|png|webp};
+     HEIC is auto-decoded to JPEG via heic2any (Chrome/FF can't
+     display HEIC natively). Missing slots are silently skipped;
+     plays 1→N→1 in a loop.                                       */
+  const EXTS    = ['jpg', 'JPG', 'jpeg', 'JPEG', 'heic', 'HEIC', 'heif', 'HEIF', 'png', 'PNG', 'webp', 'WEBP'];
+  const TOTAL   = 10;
+  const FADE_MS = 1000;
+  const HOLD_MS = 5000;
+
+  // lazy-load heic2any (only when at least one HEIC is detected)
+  let _heicLoading = null;
+  function loadHeicLib() {
+    if (_heicLoading) return _heicLoading;
+    _heicLoading = new Promise((res, rej) => {
+      const s = document.createElement('script');
+      s.src = 'https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+      s.onload  = () => res(window.heic2any);
+      s.onerror = () => rej(new Error('heic2any cdn failed'));
+      document.head.appendChild(s);
     });
+    return _heicLoading;
+  }
+
+  // HEAD-probe a candidate path; return url if 200, else null
+  async function headExists(url) {
+    try {
+      const r = await fetch(url, { method: 'HEAD' });
+      return r.ok ? url : null;
+    } catch (_) { return null; }
+  }
+
+  async function probeSlot(idx) {
+    for (const ext of EXTS) {
+      const url = `assets/photos/${idx}.${ext}`;
+      const ok  = await headExists(url);
+      if (ok) return ok;
+    }
+    return null;
+  }
+
+  // Convert HEIC to a blob URL on-the-fly; pass through other formats.
+  async function resolveImg(url) {
+    if (!/\.heic$|\.heif$/i.test(url)) return url;
+    try {
+      const heic2any = await loadHeicLib();
+      const r = await fetch(url);
+      if (!r.ok) throw new Error('fetch heic failed');
+      const blob = await r.blob();
+      const out  = await heic2any({ blob, toType: 'image/jpeg', quality: 0.88 });
+      const jpeg = Array.isArray(out) ? out[0] : out;
+      return URL.createObjectURL(jpeg);
+    } catch (e) {
+      console.warn('[slideshow] heic decode failed for', url, e);
+      return url; // last resort — Safari will render natively, others show broken
+    }
+  }
+
+  function initSlideshow() {
+    const root     = document.getElementById('slideshow');
+    const polaroid = document.getElementById('polaroid');
+    const imgEl    = document.getElementById('slide-img');
+    const cap      = document.getElementById('slide-caption');
+    const pad2     = (n) => String(n).padStart(2, '0');
+    const wait     = (ms) => new Promise((r) => setTimeout(r, ms));
+    const cache    = new Map();   // idx -> resolved (possibly converted) src
+
+    async function getSrc(slot) {
+      if (cache.has(slot.idx)) return cache.get(slot.idx);
+      const u = await resolveImg(slot.url);
+      cache.set(slot.idx, u);
+      return u;
+    }
+
+    (async () => {
+      // discover all 10 slots in parallel (HEAD requests are cheap)
+      const found = (await Promise.all(
+        Array.from({ length: TOTAL }, (_, i) => probeSlot(i + 1).then((u) => u && { idx: i + 1, url: u }))
+      )).filter(Boolean);
+
+      if (!found.length) { root.style.display = 'none'; return; }
+
+      // pre-warm the first slide so it shows up promptly
+      let i = 0;
+      while (true) {
+        const slot = found[i % found.length];
+        const src  = await getSrc(slot);
+        await new Promise((r) => { imgEl.onload = r; imgEl.onerror = r; imgEl.src = src; });
+        cap.textContent = `${pad2(slot.idx)} / ${pad2(TOTAL)}`;
+        polaroid.style.setProperty('--tilt', (Math.random() * 4 - 2).toFixed(2) + 'deg');
+        polaroid.classList.remove('out');
+        polaroid.classList.add('show');
+
+        // pre-warm the NEXT slide while this one is showing
+        const nextSlot = found[(i + 1) % found.length];
+        if (nextSlot) getSrc(nextSlot);
+
+        await wait(FADE_MS + HOLD_MS);
+        polaroid.classList.remove('show');
+        polaroid.classList.add('out');
+        await wait(FADE_MS);
+        polaroid.classList.remove('out');
+        i++;
+      }
+    })();
+  }
+
+  /* ---------------- Music ----------------
+     Tries local files in order, falls back to a hidden YouTube
+     iframe if none are present so there is *always* music.      */
+  const MUSIC_CANDIDATES = [
+    'assets/music.mp4',  // <- the file Ms Gao uploads
+    'assets/music.mp3',
+    'assets/song.mp3',
+    'assets/song.m4a',
+  ];
+  const YT_VIDEO_ID = 'FB5-rPa5wBA';
+
+  function initMusic() {
+    const btn  = document.getElementById('muteBtn');
+    let mode   = null;     // 'local' | 'yt'
+    let audio  = null;
+    let yt     = null;
+    let muted  = true;
+    btn.classList.add('muted');
+
+    function probeAudio(src) {
+      return new Promise((res) => {
+        const a = new Audio();
+        a.preload = 'auto';
+        let done = false;
+        const ok = () => { if (!done) { done = true; res(a); } };
+        const no = () => { if (!done) { done = true; res(null); } };
+        a.addEventListener('canplaythrough', ok, { once: true });
+        a.addEventListener('loadedmetadata', ok, { once: true });
+        a.addEventListener('error', no, { once: true });
+        setTimeout(no, 2500);
+        a.src = src;
+      });
+    }
+
+    function loadYTAPI() {
+      return new Promise((res) => {
+        if (window.YT && window.YT.Player) return res();
+        window.onYouTubeIframeAPIReady = () => res();
+        const tag = document.createElement('script');
+        tag.src = 'https://www.youtube.com/iframe_api';
+        document.head.appendChild(tag);
+      });
+    }
+
+    async function ensureMode() {
+      if (mode) return;
+      for (const src of MUSIC_CANDIDATES) {
+        const a = await probeAudio(src);
+        if (a) {
+          a.loop = true; a.volume = 0.5;
+          audio = a; mode = 'local';
+          return;
+        }
+      }
+      // fallback: hidden YouTube iframe
+      await loadYTAPI();
+      const host = document.createElement('div');
+      host.id = 'yt-host';
+      host.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:1px;height:1px;opacity:0;pointer-events:none;';
+      document.body.appendChild(host);
+      await new Promise((r) => {
+        yt = new window.YT.Player('yt-host', {
+          videoId: YT_VIDEO_ID,
+          playerVars: {
+            autoplay: 0, controls: 0, modestbranding: 1, playsinline: 1,
+            loop: 1, playlist: YT_VIDEO_ID, disablekb: 1, fs: 0, rel: 0,
+          },
+          events: { onReady: () => r() },
+        });
+      });
+      try { yt.setVolume(45); } catch (_) {}
+      mode = 'yt';
+    }
+
+    async function play()  { await ensureMode(); if (mode === 'local') return audio.play(); if (mode === 'yt') yt.playVideo(); }
+    function       pause() { if (mode === 'local') audio.pause(); else if (mode === 'yt') yt.pauseVideo(); }
+
+    btn.addEventListener('click', async () => {
+      try {
+        if (muted) { await play();  muted = false; btn.classList.remove('muted'); btn.textContent = '♫'; }
+        else       { pause();       muted = true;  btn.classList.add('muted');    btn.textContent = '♪'; }
+      } catch (_) { /* autoplay rejection — user can retry */ }
+    });
+
+    // try auto-start while still in the unlock user-gesture chain
+    setTimeout(async () => {
+      try {
+        await play();
+        muted = false;
+        btn.classList.remove('muted');
+        btn.textContent = '♫';
+      } catch (_) { /* blocked — wait for user click */ }
+    }, 1500);
   }
 })();

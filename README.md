@@ -46,14 +46,52 @@ git push -u origin main
 ## 📁 文件结构
 
 ```
-anniversary-100/
+an99/
 ├── index.html
 ├── css/style.css
-├── js/fireworks.js     # 烟花粒子引擎
-├── js/main.js          # 密码门 + 星空 + 计数器 + 心形雨 + 音乐
-├── assets/             # 可放 song.mp3、照片
+├── js/fireworks.js          # 烟花粒子引擎
+├── js/main.js               # 密码门 + 星空 + 计数器 + 心形雨 + 照片 + 音乐
+├── assets/
+│   ├── music.mp4            # 背景音乐（任意 mp3/mp4/m4a 都行）
+│   └── photos/
+│       ├── 1.jpg            # 1~10 顺序播放（jpg/jpeg/png/webp 自动识别）
+│       ├── 2.jpg
+│       └── ... 10.jpg
 └── README.md
 ```
+
+## 🖼 照片轮播怎么用
+
+在 GitHub 网页上把 1~10 张照片传到 `assets/photos/`，文件名分别是：
+
+```
+assets/photos/1.heic     ← iPhone 默认格式
+assets/photos/2.jpg
+...
+assets/photos/10.jpg
+```
+
+- 扩展名支持 **`.heic / .heif / .jpg / .jpeg / .png / .webp`**，混用也行（JS 自动探测）。
+  - HEIC 在 Chrome/Firefox 上不能原生显示，页面会**自动用 [heic2any](https://github.com/alexcorvi/heic2any)（CDN 加载）转码成 JPEG** 再展示；Safari 直接原生显示。
+  - 第一次加载某张 HEIC 大约要 1-2 秒解码（之后会缓存，不再重复）；建议单张 < 5 MB。
+- 不必凑齐 10 张，缺哪张 JS 自动跳过。
+- 一张 ≈ 7 秒（淡入 1s + 停留 5s + 淡出 1s），按 1→N 循环。
+- 大小写敏感（GitHub Pages 不会大小写折叠），iPhone 导出的 `.HEIC`、`.JPG` 也支持。
+
+## 🎵 背景音乐怎么用
+
+把音频文件放在 `assets/`，下面这些路径任选其一（JS 会按顺序找第一个能播的）：
+
+```
+assets/music.mp4   ← 推荐 (YouTube 下来的 .mp4 容器直接放，无需转码)
+assets/music.mp3
+assets/song.mp3
+assets/song.m4a
+```
+
+如果一个都没找到，会自动 fallback 到一个**隐藏的 YouTube iframe**（视频 ID 写死在 `js/main.js` 的 `YT_VIDEO_ID`），仍然能播——所以即便你不上传文件，页面也有声音。
+
+> 浏览器策略：解锁密码后会**尝试自动播放**，因为表单提交属于用户手势链；如果浏览器仍拦截，点右下角 ♪ 就能播。
 
 ## 🔒 密码说明
 
