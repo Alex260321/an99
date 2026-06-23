@@ -318,7 +318,7 @@
   }
 
   // delay before first photo appears (from scene boot)
-  const INITIAL_DELAY_MS = 6000;
+  const INITIAL_DELAY_MS = 12000;
 
   function initSlideshow() {
     const root     = document.getElementById('slideshow');
