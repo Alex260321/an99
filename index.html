@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+<meta name="description" content="99天纪念日 — A romantic fireworks page for Ms Gao, from Mr. Liu." />
+<meta name="theme-color" content="#150734" />
+<title>99天纪念日 ✦</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Ma+Shan+Zheng&family=Dancing+Script:wght@500;700&family=Cormorant+Garamond:wght@300;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+<!-- ===== Password gate ===== -->
+<div id="gate" class="gate">
+  <div class="gate-bg"></div>
+  <div class="gate-orbs"></div>
+  <div class="gate-card">
+    <div class="gate-heart">♥</div>
+    <h1 class="gate-title">For Ms Gao</h1>
+    <p class="gate-sub">输入只有我们才知道的那一天</p>
+    <form id="gate-form" autocomplete="off">
+      <input id="gate-input" type="password" inputmode="numeric" maxlength="16" placeholder="••••••••" autofocus />
+      <button id="gate-btn" type="submit"><span>推开门</span></button>
+    </form>
+    <p id="gate-msg" class="gate-msg"></p>
+  </div>
+</div>
+
+<!-- ===== Main romantic scene ===== -->
+<div id="scene" class="scene hidden">
+  <canvas id="stars"></canvas>
+  <div class="aurora" aria-hidden="true"></div>
+  <canvas id="fireworks"></canvas>
+
+  <div class="moon" aria-hidden="true"></div>
+  <div class="hearts" id="hearts" aria-hidden="true"></div>
+
+  <header class="title-wrap">
+    <div class="kicker">Ms Gao &amp; Mr. Liu · 2026</div>
+    <h1 class="title">99<span class="title-cn">天纪念日</span></h1>
+    <p class="subtitle">For Ms Gao, the one who lights up my sky</p>
+  </header>
+
+  <div class="counter" id="counter" aria-label="time together">
+    <div class="cell"><span class="num" id="d">0</span><span class="lbl">天</span></div>
+    <div class="cell"><span class="num" id="h">00</span><span class="lbl">时</span></div>
+    <div class="cell"><span class="num" id="m">00</span><span class="lbl">分</span></div>
+    <div class="cell"><span class="num" id="s">00</span><span class="lbl">秒</span></div>
+  </div>
+
+  <footer class="msg">
+    <p class="line">愿往后每一夜的星空，都有你与我同看。</p>
+    <p class="sig">致 Ms Gao — 你的 Mr. Liu ♥</p>
+  </footer>
+
+  <button id="muteBtn" class="mute" title="背景音乐 (assets/song.mp3)" aria-label="toggle music">♪</button>
+  <div class="hint" id="hint">点击任意位置 · 绽放一朵烟花</div>
+</div>
+
+<script src="js/fireworks.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

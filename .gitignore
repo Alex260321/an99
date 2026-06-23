@@ -1,0 +1,15 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# logs
+*.log
+
+# node (just in case anyone adds a build step)
+node_modules/
+
+# personal media you might keep locally but not on GitHub
+assets/private/
