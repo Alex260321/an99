@@ -317,6 +317,9 @@
     }
   }
 
+  // delay before first photo appears (from scene boot)
+  const INITIAL_DELAY_MS = 6000;
+
   function initSlideshow() {
     const root     = document.getElementById('slideshow');
     const polaroid = document.getElementById('polaroid');
@@ -341,7 +344,12 @@
 
       if (!found.length) { root.style.display = 'none'; return; }
 
-      // pre-warm the first slide so it shows up promptly
+      // pre-warm slide #1 (HEIC decode etc.) DURING the initial delay,
+      // so the first photo appears at exactly INITIAL_DELAY_MS with no extra latency
+      const firstReady = getSrc(found[0]);
+      await wait(INITIAL_DELAY_MS);
+      await firstReady;
+
       let i = 0;
       while (true) {
         const slot = found[i % found.length];
